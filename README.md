@@ -1,5 +1,12 @@
 # American Sign Language Fingerspelling Recognition
 
+### Useful links
+* [Overview of the challenge](https://www.kaggle.com/competitions/asl-fingerspelling/overview)
+* [Overview of the previous instance](https://www.kaggle.com/competitions/asl-signs/overview)
+* [Hand landmarks guide](https://developers.google.com/mediapipe/solutions/vision/hand_landmarker)
+* [ASL wiki](https://en.wikipedia.org/wiki/American_Sign_Language)
+
+
 ### Following tasks
 **Research:**
 • искам информация как работи asl
