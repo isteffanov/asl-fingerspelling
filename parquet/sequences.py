@@ -12,8 +12,10 @@ class Sequence:
 
 """
         Load a parquet file containing sequences.
+        Paths to the parquet file and metadata file
+        are expected.
 
-        String -> Array[Sequence]
+        String -> String -> Array[Sequence]
 """
 def load_parquet(filepath, supplemental_metadata_path): 
     seqs = []
