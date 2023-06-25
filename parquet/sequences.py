@@ -27,7 +27,6 @@ def load_parquet(filepath, supplemental_metadata_path):
     file_id = os.path.basename(filepath).split('.')[0]
 
     landmark_df = pd.read_parquet(filepath, 'pyarrow')
-    import pdb;pdb.set_trace()
 
     for seq in list(set(landmark_df.index.tolist())):
         text = csv.loc[csv['sequence_id'] == seq]['phrase'].values[0]
@@ -50,5 +49,8 @@ def load_parquet_as_np(filepath, supplemental_metadata_path):
     file_id = os.path.basename(filepath).split('.')[0]
 
     landmark_df = pd.read_parquet(filepath, 'pyarrow').drop('frame', axis='columns')
-    return np.array(list(landmark_df.groupby(['sequence_id']).apply(lambda x:x.to_numpy())))
+    arr = []
+    for seq in set(landmark_df.index):
+        arr.append(csv.loc[csv['sequence_id'] == seq]['phrase'].values[0])
+    return np.array(list(landmark_df.groupby(['sequence_id']).apply(lambda x:x.to_numpy()))), np.array(arr)
 

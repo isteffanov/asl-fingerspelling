@@ -42,13 +42,24 @@ def add_phrase_as_nums_to_sequences(sequences):
 
 def char_to_ohe(char):
     num = char_to_num(char)
-    arr = np.zeros((59,), dtype=int)
-    arr[num] = 1
+    arr = np.zeros((61,), dtype=int)
+    arr[num+1] = 1
 
     return arr
 
+def start_token():
+    arr = np.zeroes((61,), dtype=int)
+    arr[0] = 1
+    return arr
 
-sequences = load_parquet_as_np('1647220008.parquet', 'train.csv')
+def end_token():
+    arr = np.zeroes((61,), dtype=int)
+    arr[60] = 1
+    return arr
+
+
+sequences, phrases = load_parquet_as_np('1647220008.parquet', 'train.csv')
+import pdb;pdb.set_trace()
 
 #### MODEL
 import tensorflow as tf
