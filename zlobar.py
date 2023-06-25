@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
+from attention import AttentionLayer
 
 class Sequence: 
     def __init__(self, df, text, seq_id, num_frames):
@@ -24,7 +25,7 @@ def load_landmark_file(landmark_file, metadata_df):
         text = metadata_df[metadata_df['sequence_id'] == sequence_id].iloc[0].phrase
         num_frames = len(df)
         sequences.append(Sequence(
-            df=df.filter(regex=r'frame|[xy]_right_hand'), \
+            df=df.filter(regex=r'[xy]_right_hand'), \
             text=text, \
             seq_id=sequence_id, \
             num_frames=num_frames))
@@ -54,7 +55,6 @@ if not os.path.exists('nns.pkl'):
     for sequence in landmarks:
         if not any(sequence.df.isnull().sum(axis=0)):
             no_nan_sequences.append(sequence)
-
     
     
     with open('nns.pkl', 'wb+') as file:
@@ -165,17 +165,18 @@ def prepare_data(input_data, target_texts, char_to_num_map):
 #### MODEL
 import tensorflow as tf
 from tensorflow import keras
-from keras.layers import Input, LSTM, Dense
+from keras.layers import Input, LSTM, Dense, Concatenate, TransformerEncoder, TransformerDecoder
 from keras.models import Model
 
-encoder_inputs = Input(shape=(None, 84))
-encoder = LSTM(128, return_state=True)
-encoder_outputs, state_h, state_c = encoder(encoder_inputs)
-encoder_states = [state_h, state_c]
+encoder_inputs = Input(shape=(None, 42))
+encoder = TransformerEncoder(indermediate_dim=128, num_heads=8)
+encoder_outputs = encoder(encoder_inputs)
 
 decoder_inputs = Input(shape=(None, 59))
-decoder = LSTM(128, return_sequences=True, return_state=True)
-decoder_outputs, _, _ = decoder(decoder_inputs, initial_state=encoder_states)
+decoder = keras_nlp.layers.TransformerDecoder(
+    intermediate_dim=64, num_heads=8)
+decoder = decoder(decoder_inputs, encoder)
+
 decoder_dense = Dense(59, activation='softmax')
 decoder_outputs = decoder_dense(decoder_outputs)
 
@@ -183,14 +184,14 @@ decoder_outputs = decoder_dense(decoder_outputs)
 model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
 model.summary()
 
-model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy", "cosine_similarity"])
-
+model.compile(optimizer="adam", loss="mse", metrics=["accuracy", "cosine_similarity"])
 
 encoder_input_data, decoder_input_data, decoder_target_data = prepare_data([s.df.to_numpy() for s in no_nan_sequences], [s.text for s in no_nan_sequences], char_to_num_map)
 
-batch_size = 128 
-epochs = 20
+batch_size = 10
+epochs = 50
 
+import pdb;pdb.set_trace()
 
 model.fit(
     [encoder_input_data, decoder_input_data],
@@ -201,9 +202,10 @@ model.fit(
 )
 #### END OF MODEL
 
+# RESULTS
 
+# 165/165 [==============================] - 6s 37ms/step - loss: 0.0052 - accuracy: 0.2700 - cosine_similarity: 0.2554 - val_loss: 0.0072 - val_accuracy: 0.1628 - val_cosine_similarity: 0.1660
 
-
-
+# Trains faster, better accuracy  => no need for attention
 
 

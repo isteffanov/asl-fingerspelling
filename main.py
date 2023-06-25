@@ -72,9 +72,6 @@ def remove_nans(arr):
 
 
 sequences, phrases = load_parquet_as_np('1647220008.parquet', 'train.csv')
-<<<<<<< HEAD
-import pdb
-
 
 import numpy as np
 
@@ -115,10 +112,8 @@ def prepare_data(input_data, target_texts, char_to_num_map):
 
     return encoder_input_data, decoder_input_data, decoder_target_data
 
-=======
 ohe_phrases = np.array([phrase_to_ohe(phrase) for phrase in phrases])
 ohe_p_start_and_end = np.array([add_start_and_end(phrase) for phrase in ohe_phrases])
->>>>>>> ff3c5da085d68ce6938a50bbabf89dd0629caeac
 
 #### MODEL
 import tensorflow as tf
@@ -148,7 +143,6 @@ decoder_outputs = decoder_dense(decoder_outputs)
 model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
 model.summary()
 
-<<<<<<< HEAD
 model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy", "cosine_similarity"])
 
 encoder_input_data, decoder_input_data, decoder_target_data = prepare_data(sequences,phrases, char_to_num_map)
@@ -156,7 +150,6 @@ encoder_input_data, decoder_input_data, decoder_target_data = prepare_data(seque
 batch_size = 128 
 epochs = 20
 
-=======
 model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
               loss=tf.keras.losses.BinaryCrossentropy(),
               metrics=[tf.keras.metrics.Accuracy(),
@@ -168,7 +161,6 @@ ohe_phrases = pad_sequences(ohe_phrases,padding='post', dtype='float32')
 #model.fit([tf.ragged.constant(sequences), tf.ragged.constant(ohe_p_start_and_end)], tf.ragged.constant(ohe_phrases))
 #model.fit([padded_sequences, ohe_p_start_and_end], ohe_phrases)
 model.fit([padded_sequences, ohe_p_start_and_end], ohe_p_start_and_end, epochs=100, validation_split=0.2)
->>>>>>> ff3c5da085d68ce6938a50bbabf89dd0629caeac
 
 model.fit(
     [encoder_input_data, decoder_input_data],
