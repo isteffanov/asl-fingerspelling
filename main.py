@@ -29,6 +29,9 @@ def phrase_to_nums(phrase):
 
     return arr
 
+def phrase_to_ohe(phrase):
+    return np.array([char_to_ohe(c) for c in phrase])
+
 def nums_to_phrase(arr):
     phrase = ''
     for num in arr:
@@ -48,18 +51,24 @@ def char_to_ohe(char):
     return arr
 
 def start_token():
-    arr = np.zeroes((61,), dtype=int)
+    arr = np.zeros((61,), dtype=int)
     arr[0] = 1
     return arr
 
 def end_token():
-    arr = np.zeroes((61,), dtype=int)
+    arr = np.zeros((61,), dtype=int)
     arr[60] = 1
+    return arr
+
+def add_start_and_end(arr):
+    arr = np.append(arr, [end_token()], axis=0)
+    arr = np.insert(arr, 0, [start_token()], axis=0)
     return arr
 
 
 sequences, phrases = load_parquet_as_np('1647220008.parquet', 'train.csv')
-import pdb;pdb.set_trace()
+ohe_phrases = np.array([phrase_to_ohe(phrase) for phrase in phrases])
+ohe_p_start_and_end = np.array([add_start_and_end(phrase) for phrase in ohe_phrases])
 
 #### MODEL
 import tensorflow as tf
@@ -86,6 +95,8 @@ model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
               loss=tf.keras.losses.BinaryCrossentropy(),
               metrics=[tf.keras.metrics.BinaryAccuracy(),
                        tf.keras.metrics.FalseNegatives()])
+
+
 
 #### END OF MODEL
 
