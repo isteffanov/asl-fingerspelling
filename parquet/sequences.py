@@ -50,7 +50,9 @@ def load_parquet_as_np(filepath, supplemental_metadata_path):
 
     landmark_df = pd.read_parquet(filepath, 'pyarrow').drop('frame', axis='columns')
     arr = []
-    for seq in set(landmark_df.index):
+
+    for seq in np.unique(landmark_df.index.values):
         arr.append(csv.loc[csv['sequence_id'] == seq]['phrase'].values[0])
+
     return np.array(list(landmark_df.groupby(['sequence_id']).apply(lambda x:x.to_numpy()))), np.array(arr)
 
