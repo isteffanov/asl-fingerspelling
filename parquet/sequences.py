@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 
 class Sequence: 
@@ -26,12 +27,13 @@ def load_parquet(filepath, supplemental_metadata_path):
     file_id = os.path.basename(filepath).split('.')[0]
 
     landmark_df = pd.read_parquet(filepath, 'pyarrow')
+    import pdb;pdb.set_trace()
 
     for seq in list(set(landmark_df.index.tolist())):
         text = csv.loc[csv['sequence_id'] == seq]['phrase'].values[0]
 
         seq_df = landmark_df.loc[seq]
-        seq_df_filtered = pd.concat([seq_df.loc[:, :'frame'], \
+        seq_df_filtered = pd.concat( [\
             seq_df.loc[:, 'x_left_hand_0':'x_left_hand_20'], \
             seq_df.loc[:, 'y_left_hand_0':'y_left_hand_20'], \
             seq_df.loc[:, 'x_right_hand_0':'x_right_hand_20'], \
@@ -40,4 +42,13 @@ def load_parquet(filepath, supplemental_metadata_path):
         seqs.append(Sequence(seq_df_filtered, text))
 
     return seqs
+
+def load_parquet_as_np(filepath, supplemental_metadata_path): 
+    csv = pd.read_csv(supplemental_metadata_path)
+
+    # Extract file id from file name Ex. 134343541.parquet -> 134343541
+    file_id = os.path.basename(filepath).split('.')[0]
+
+    landmark_df = pd.read_parquet(filepath, 'pyarrow').drop('frame', axis='columns')
+    return np.array(list(landmark_df.groupby(['sequence_id']).apply(lambda x:x.to_numpy())))
 
