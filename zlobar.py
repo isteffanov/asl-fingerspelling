@@ -1,3 +1,70 @@
+import numpy as np
+import pandas as pd
+import os
+
+class Sequence: 
+    def __init__(self, df, text, seq_id, num_frames):
+        # DataFrame
+        self.df = df
+        # Sequence Text
+        self.text = text
+        # seq id
+        self.seq_id = seq_id
+        
+        self.frames = num_frames
+
+
+def load_landmark_file(landmark_file, metadata_df):
+    data = pd.read_parquet(landmark_file)
+    group = data.groupby('sequence_id')
+    
+    sequences = []
+    for idx, df in group:
+        sequence_id = idx
+        text = metadata_df[metadata_df['sequence_id'] == sequence_id].iloc[0].phrase
+        num_frames = len(df)
+        sequences.append(Sequence(
+            df=df.filter(regex=r'frame|[xy]_right_hand'), \
+            text=text, \
+            seq_id=sequence_id, \
+            num_frames=num_frames))
+        
+    return sequences
+
+def load_landmark_dir(landmark_dir, metadata_df):
+    sequences = []
+    for dirname, _, filenames in os.walk(landmark_dir):
+        for filename in filenames:
+            for sequence in load_landmark_file(os.path.join(dirname, filename), metadata_df):
+                sequences.append(sequence)
+                
+    return sequences
+
+import pickle
+
+if not os.path.exists('nns.pkl'):
+
+    landmark_dir = '/home/data/train_landmarks_filtered/'
+    csv_path = '/home/data/train.csv'
+
+    metadata = pd.read_csv(csv_path)
+    landmarks = load_landmark_dir(landmark_dir, metadata)
+
+    no_nan_sequences = []
+    for sequence in landmarks:
+        if not any(sequence.df.isnull().sum(axis=0)):
+            no_nan_sequences.append(sequence)
+
+    
+    
+    with open('nns.pkl', 'wb+') as file:
+        pickle.dump(no_nan_sequences, file)
+
+else:
+    with open('nns.pkl', 'rb') as file:
+        no_nan_sequences = pickle.load(file)
+
+
 import json
 from parquet import load_parquet_as_np
 import numpy as np
@@ -58,12 +125,6 @@ def end_token():
     return arr
 
 
-sequences, phrases = load_parquet_as_np('1647220008.parquet', 'train.csv')
-import pdb
-
-
-import numpy as np
-
 def prepare_data(input_data, target_texts, char_to_num_map):
     # Determine the maximum sequence length in the input data
     max_sequence_length = max(len(seq) for seq in input_data)
@@ -78,7 +139,6 @@ def prepare_data(input_data, target_texts, char_to_num_map):
     for i, input_sequence in enumerate(input_data):
         # Assign each frame to the corresponding position in the encoder_input_data array
         encoder_input_data[i, :input_sequence.shape[0], :] = input_sequence
-        pdb.set_trace()
 
     # Determine the maximum target sequence length
     max_decoder_seq_length = max(len(target_text) for target_text in target_texts)
@@ -125,7 +185,8 @@ model.summary()
 
 model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy", "cosine_similarity"])
 
-encoder_input_data, decoder_input_data, decoder_target_data = prepare_data(sequences,phrases, char_to_num_map)
+
+encoder_input_data, decoder_input_data, decoder_target_data = prepare_data([s.df.to_numpy() for s in no_nan_sequences], [s.text for s in no_nan_sequences], char_to_num_map)
 
 batch_size = 128 
 epochs = 20
@@ -139,5 +200,10 @@ model.fit(
     validation_split=0.2,
 )
 #### END OF MODEL
+
+
+
+
+
 
 
