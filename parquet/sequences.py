@@ -48,7 +48,7 @@ def load_parquet_as_np(filepath, supplemental_metadata_path):
     # Extract file id from file name Ex. 134343541.parquet -> 134343541
     file_id = os.path.basename(filepath).split('.')[0]
 
-    landmark_df = pd.read_parquet(filepath, 'pyarrow').drop('frame', axis='columns')
+    landmark_df = pd.read_parquet(filepath, 'pyarrow')
     arr = []
 
     for seq in np.unique(landmark_df.index.values):
