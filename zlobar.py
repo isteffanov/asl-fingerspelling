@@ -25,44 +25,40 @@ def load_landmark_file(landmark_file, metadata_df):
         text = metadata_df[metadata_df['sequence_id'] == sequence_id].iloc[0].phrase
         num_frames = len(df)
         sequences.append(Sequence(
-            df=df.filter(regex=r'[xy]_right_hand'), \
+            df=df.filter(regex=r'[xyz]_(dom|sub)_[0-9]+'), \
             text=text, \
             seq_id=sequence_id, \
             num_frames=num_frames))
-        
+            
     return sequences
 
-def load_landmark_dir(landmark_dir, metadata_df):
-    sequences = []
-    for dirname, _, filenames in os.walk(landmark_dir):
-        for filename in filenames:
-            for sequence in load_landmark_file(os.path.join(dirname, filename), metadata_df):
-                sequences.append(sequence)
-                
-    return sequences
 
 import pickle
 
 if not os.path.exists('nns.pkl'):
 
-    landmark_dir = '/home/data/train_landmarks_filtered/'
+    landmark_dir = '/home/asl-fingerspelling/preprocessed_train-2.parquet'
     csv_path = '/home/data/train.csv'
 
     metadata = pd.read_csv(csv_path)
-    landmarks = load_landmark_dir(landmark_dir, metadata)
+    landmarks = pd.read_parquet(landmark_dir)
 
-    no_nan_sequences = []
-    for sequence in landmarks:
-        if not any(sequence.df.isnull().sum(axis=0)):
-            no_nan_sequences.append(sequence)
-    
-    
+    sequences = pd.DataFrame(landmarks.groupby(['sequence_id']).apply(lambda x:x.to_numpy()))
+    sequences = sequences.rename(columns={0: 'coordinates'})
+
+    sequences = sequences.sort_values(by='sequence_id')
+
+    phrases = pd.read_csv(csv_path, usecols=['sequence_id', 'phrase'])
+
+    phrases = phrases.sort_values(by='sequence_id')
+    matched_sequences = pd.merge(sequences,phrases, on = 'sequence_id')
+
     with open('nns.pkl', 'wb+') as file:
-        pickle.dump(no_nan_sequences, file)
+        pickle.dump(matched_sequences, file)
 
 else:
     with open('nns.pkl', 'rb') as file:
-        no_nan_sequences = pickle.load(file)
+        matched_sequences = pickle.load(file)
 
 
 import json
@@ -126,6 +122,7 @@ def end_token():
 
 
 def prepare_data(input_data, target_texts, char_to_num_map):
+
     # Determine the maximum sequence length in the input data
     max_sequence_length = max(len(seq) for seq in input_data)
 
@@ -165,17 +162,24 @@ def prepare_data(input_data, target_texts, char_to_num_map):
 #### MODEL
 import tensorflow as tf
 from tensorflow import keras
-from keras.layers import Input, LSTM, Dense, Concatenate, TransformerEncoder, TransformerDecoder
+from keras.layers import Input, LSTM, Dense, Concatenate
 from keras.models import Model
 
+
 encoder_inputs = Input(shape=(None, 42))
-encoder = TransformerEncoder(indermediate_dim=128, num_heads=8)
-encoder_outputs = encoder(encoder_inputs)
+encoder = LSTM(512, return_sequences=True, return_state=True)
+encoder_outputs, state_h, state_c = encoder(encoder_inputs)
+#encoder_states = [state_h, state_c]
+
+encoder2 = LSTM(512, return_sequences=True, return_state=True)
+encoder_outputs2, state_h2, state_c2 = encoder2(encoder_outputs)
+
+encoder3 = LSTM(512, return_sequences=True, return_state=True)
+encoder_outputs3, state_h3, state_c3 = encoder3(encoder_outputs2)
 
 decoder_inputs = Input(shape=(None, 59))
-decoder = keras_nlp.layers.TransformerDecoder(
-    intermediate_dim=64, num_heads=8)
-decoder = decoder(decoder_inputs, encoder)
+decoder = LSTM(512, return_sequences=True, return_state=True)
+decoder_outputs, _, _ = decoder(decoder_inputs, initial_state=[state_h3, state_c3])
 
 decoder_dense = Dense(59, activation='softmax')
 decoder_outputs = decoder_dense(decoder_outputs)
@@ -186,12 +190,15 @@ model.summary()
 
 model.compile(optimizer="adam", loss="mse", metrics=["accuracy", "cosine_similarity"])
 
-encoder_input_data, decoder_input_data, decoder_target_data = prepare_data([s.df.to_numpy() for s in no_nan_sequences], [s.text for s in no_nan_sequences], char_to_num_map)
+encoder_input_data, decoder_input_data, decoder_target_data = prepare_data([row["coordinates"] for _, row in matched_sequences.iterrows()],
+    	[row["phrase"] for _, row in matched_sequences.iterrows()] , char_to_num_map)
 
-batch_size = 10
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split([encoder_input_data,decoder_input_data], decoder_input_data, test_size=0.33, random_state=42)
+
+batch_size = 128
 epochs = 50
 
-import pdb;pdb.set_trace()
 
 model.fit(
     [encoder_input_data, decoder_input_data],
@@ -202,6 +209,9 @@ model.fit(
 )
 #### END OF MODEL
 
+#### TEST
+
+model.predict(X_test, batch_size, )
 # RESULTS
 
 # 165/165 [==============================] - 6s 37ms/step - loss: 0.0052 - accuracy: 0.2700 - cosine_similarity: 0.2554 - val_loss: 0.0072 - val_accuracy: 0.1628 - val_cosine_similarity: 0.1660
